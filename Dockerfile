@@ -1,72 +1,74 @@
-FROM golang:1.15.6-alpine3.12
+FROM kohirens/alpine-glibc:3.18.4-2.35-r1 AS base
 
 ARG USER_NAME='circleci'
 ARG USER_UID='1000'
 ARG USER_GID='1000'
 ARG USER_GROUP='app_users'
 
-ENV GOPATH /home/$USER_NAME
-ENV CGO_ENABLED 0
-ENV TERRAFORM_DOWNLOAD_URL 'https://releases.hashicorp.com/terraform/0.13.6/terraform_0.13.6_linux_amd64.zip'
-ENV TFLINT_DOWNLOAD_URL 'https://github.com/wata727/tflint/releases/download/v0.13.1/tflint_linux_amd64.zip'
-ENV TERRAGRUNT_DOWNLOAD_URL 'https://github.com/gruntwork-io/terragrunt/releases/download/v0.27.1/terragrunt_linux_amd64'
+ENV TERRAFORM_DOWNLOAD_URL 'https://releases.hashicorp.com/terraform/1.6.3/terraform_1.6.3_linux_amd64.zip'
+ENV TFLINT_DOWNLOAD_URL 'https://github.com/wata727/tflint/releases/download/v0.53.0/tflint_linux_amd64.zip'
+ENV TFLINT_DOWNLOAD_URL 'https://github.com/terraform-linters/tflint/releases/download/v0.48.0/tflint_linux_amd64.zip'
+ENV TERRAGRUNT_DOWNLOAD_URL 'https://github.com/gruntwork-io/terragrunt/releases/download/v0.53.0/terragrunt_linux_amd64'
 ENV AWSCLI_DOWNLOAD_URL 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip'
 
-# VS Code Requirements: openssh, musl, libgcc, libstdc++
+WORKDIR /tmp
+
 RUN apk --no-progress --purge --no-cache upgrade \
  && apk --no-progress --purge --no-cache add --upgrade \
+    bash \
     curl \
     git \
     gnupg \
-    libgcc \
-    libstdc++ \
+    gzip \
     openssh \
-    tini \
+    zip \
  && apk --no-progress --purge --no-cache upgrade \
  && rm -vrf /var/cache/apk/* \
  && curl --version \
  && git --version
 
-# Install vanilla GLibC: https://github.com/sgerrand/alpine-pkg-glibc
-RUN curl -o /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub \
- && curl -LO https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.32-r0/glibc-2.32-r0.apk \
- && apk add glibc-2.32-r0.apk
+RUN curl -fL -o /tmp/terraform.zip "${TERRAFORM_DOWNLOAD_URL}" \
+ && unzip -q -d "/usr/local/bin" /tmp/terraform.zip \
+ && rm -f /tmp/terraform.zip \
+ && terraform version
+
+RUN curl -fL -o "/usr/local/bin/terragrunt" "${TERRAGRUNT_DOWNLOAD_URL}" \
+ && chmod a+x "/usr/local/bin/terragrunt" \
+ && terragrunt
+
+RUN curl --fail --silent -L -o /tmp/tflint.zip "${TFLINT_DOWNLOAD_URL}" \
+ && unzip -q -d "/usr/local/bin" /tmp/tflint.zip \
+ && chmod a+x "/usr/local/bin/tflint" \
+ && rm -f /tmp/tflint.zip \
+ && tflint
 
 RUN echo 'Install AWS CLI 2' \
- && curl -o /tmp/awscliv2.zip "${AWSCLI_DOWNLOAD_URL}" \
- && unzip -q -d /tmp /tmp/awscliv2.zip \
- && /tmp/aws/install
+ && wget -O "awscliv2.zip" "${AWSCLI_DOWNLOAD_URL}" \
+ && unzip awscliv2.zip
 
-# Add a non-root group and user, helpful if you dev on Linux.
-RUN addgroup --system --gid $USER_GID $USER_GROUP \
+RUN ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli \
+ && aws --version
+
+#RUN rm -f /tmp/*
+
+# Add a non-root group and user.
+RUN addgroup --system --gid ${USER_GID} ${USER_GROUP} \
  && adduser --system \
     --disabled-password \
-    --ingroup $USER_GROUP \
-    --uid $USER_UID \
-    $USER_NAME
+    --ingroup ${USER_GROUP} \
+    --uid ${USER_UID} \
+    ${USER_NAME}
 
-USER $USER_NAME
+FROM base AS dev
 
-# Install Go helpful dev tools.
-RUN mkdir -p ~/bin \
- && curl -L -o ~/bin/git-chglog https://github.com/git-chglog/git-chglog/releases/download/v0.10.0/git-chglog_linux_amd64 \
- && chmod +x ~/bin/git-chglog
+COPY --chmod=0775 start.sh /usr/local/bin/
 
-# VSCode Requirements for pre-installing extensions
-RUN mkdir -p /home/$USER_NAME/.vscode-server \
-    /home/$USER_NAME/.vscode-server-insiders \
-    "${GOPATH}/src" \
-    "${GOPATH}/bin"
+ENTRYPOINT [ "start.sh" ]
 
-RUN curl -fL -o /tmp/terraform.zip "${TERRAFORM_DOWNLOAD_URL}" \
- && unzip -q -d "${GOPATH}/bin" /tmp/terraform.zip \
- && rm -f /tmp/terraform.zip
+FROM base AS release
 
-RUN curl -fL -o "${GOPATH}/bin/terragrunt" "${TERRAGRUNT_DOWNLOAD_URL}" \
- && chmod +x "${GOPATH}/bin/terragrunt"
+USER ${USER_NAME}
 
-ENV PATH "${PATH}:${GOPATH}/bin"
+ENTRYPOINT [ "" ]
 
-ENTRYPOINT [ "tini", "--" ]
-
-CMD [ "tail", "-f", "/dev/null" ]
+CMD [ "" ]

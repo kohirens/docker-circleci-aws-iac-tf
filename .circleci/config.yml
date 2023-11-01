@@ -1,0 +1,130 @@
+version: 2.1
+
+orbs:
+  vro: kohirens/version-release@3.1.0
+
+parameters:
+  ctx_ci_cd:
+    default: kohirens-automation
+    description: Secrets context
+    type: string
+  ctx_dockerhub:
+    default: kohirens-automation-dockerhub
+    description: Secrets context
+    type: string
+  ssh_finger:
+    description: SSH fingerprint.
+    type: string
+    default: "37:64:7e:27:18:71:a0:50:c5:d3:bc:d0:04:1a:75:51"
+  triggered_by_bot:
+    default: false
+    description: Trigger publishing a release tag workflow.
+    type: boolean
+
+executors:
+  builder:
+    docker:
+      - image: docker:20.10.14-git
+        auth:
+          username: ${DH_USER}
+          password: ${DH_PASS}
+    resource_class: small
+
+# Anchors
+
+default-env-vars: &default-env-vars
+    DH_IMG_REPO: "kohirens/circleci-aws-iac-tf"
+
+filter-semantic-tag: &filter-semantic-tag
+  tags:
+    only: /^v?\d+\.\d+\.\d+$/
+  branches:
+    ignore: /.*/
+
+jobs:
+    build-n-test:
+      executor: builder
+      environment:
+        <<: *default-env-vars
+      steps:
+        - checkout
+        - setup_remote_docker
+        - run:
+            name: "Build Docker image"
+            command: |
+              docker build --rm --no-cache -t "${DH_IMG_REPO}" .
+        - run:
+            name: "Test Docker image"
+            command: |
+              docker run -it --rm "${DH_IMG_REPO}" aws --version
+              docker run -it --rm "${DH_IMG_REPO}" terraform -version
+
+    publish-image:
+      executor: builder
+      parameters:
+        image_tag:
+          default: "dev"
+          type: string
+      environment:
+        <<: *default-env-vars
+      steps:
+        - checkout
+        - setup_remote_docker
+        - run:
+            name: Push Docker image
+            command: |
+              export DH_IMAGE="${DH_IMG_REPO}:<< parameters.image_tag >>"
+              echo "Building image ${DH_IMAGE}"
+              echo "${DH_PASS}" | docker login -u "${DH_USER}" --password-stdin
+              echo ""
+              echo ""
+              echo "Building ${DH_IMAGE}"
+              docker build --rm -t "${DH_IMAGE}" .
+              echo ""
+              echo ""
+              echo "Building ${DH_IMAGE}"
+              docker push "${DH_IMAGE}"
+              echo ""
+              echo ""
+              echo "Building ${DH_IMAGE}"
+              docker rmi "${DH_IMAGE}"
+
+workflows:
+  quality-control: # Run on all branches and PRs except main|auto-*
+    jobs:
+      - build-n-test:
+          context:
+            - << pipeline.parameters.ctx_ci_cd >>
+            - << pipeline.parameters.ctx_dockerhub >>
+          filters: { branches: { ignore: /main|auto-update-changelog/ } }
+
+  publish-changelog:
+    when:
+      and:
+        - equal: [main, << pipeline.git.branch >>]
+        - equal: [webhook, << pipeline.trigger_source >>]
+    jobs:
+        - vro/publish-changelog:
+            context: << pipeline.parameters.ctx_ci_cd >>
+            ssh_finger: << pipeline.parameters.ssh_finger >>
+
+  publish-release-tag:
+    when:
+      and:
+        - equal: [main, << pipeline.git.branch >>]
+        - << pipeline.parameters.triggered_by_bot >>
+    jobs:
+      - vro/tag-and-release:
+          context: << pipeline.parameters.ctx_dockerhub >>
+
+  on-tag-release:
+    jobs:
+      - publish-image:
+          context:
+            - << pipeline.parameters.ctx_ci_cd >>
+            - << pipeline.parameters.ctx_dockerhub >>
+          filters:
+            <<: *filter-semantic-tag
+          image_tag: << pipeline.git.tag >>
+
+
