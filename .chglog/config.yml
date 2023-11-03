@@ -1,0 +1,35 @@
+style: github
+template: CHANGELOG.tpl.md
+info:
+  title: CHANGELOG
+  repository_url: https://github.com/kohirens/docker-circleci-aws-iac-tf
+options:
+  commits:
+    filters:
+      Type:
+        - add
+        - fix
+        - dep
+        - chg
+        - rmv
+        - mnt
+        - doc
+        - ci
+  commit_groups:
+    title_maps:
+      add: Added
+      fix: Fixed
+      dep: Deprecated
+      chg: Changed
+      rmv: Removed
+      mnt: Maintenance
+      doc: Documented
+      ci: Continuous Integration
+  header:
+    pattern: "^(\\w*)\\:\\s(.*)$"
+    pattern_maps:
+      - Type
+      - Subject
+  notes:
+    keywords:
+      - BREAKING CHANGE
