@@ -16,10 +16,10 @@ parameters:
     description: SSH fingerprint.
     type: string
     default: "37:64:7e:27:18:71:a0:50:c5:d3:bc:d0:04:1a:75:51"
-  triggered_by_bot:
-    default: false
-    description: Trigger publishing a release tag workflow.
-    type: boolean
+  triggered_flow:
+    default: "workflow-selector"
+    description: Workflow to be executed.
+    type: string
 
 executors:
   builder:
@@ -119,6 +119,12 @@ workflows:
 
   on-tag-release:
     jobs:
+      - build-n-test:
+          context:
+            - << pipeline.parameters.ctx_ci_cd >>
+            - << pipeline.parameters.ctx_dockerhub >>
+          filters:
+            <<: *filter-semantic-tag
       - publish-image:
           context:
             - << pipeline.parameters.ctx_ci_cd >>
@@ -126,5 +132,6 @@ workflows:
           filters:
             <<: *filter-semantic-tag
           image_tag: << pipeline.git.tag >>
+          requires: [ build-n-test ]
 
 
