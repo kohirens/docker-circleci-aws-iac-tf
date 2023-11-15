@@ -20,6 +20,7 @@ RUN apk --no-progress --purge --no-cache upgrade \
     gnupg \
     gzip \
     openssh \
+    openssl \
     zip \
  && apk --no-progress --purge --no-cache upgrade \
  && rm -vrf /var/cache/apk/* \
