@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
     container:
-        image: "kohirens/circleci-aws-iac-tf:${BUILD_VER:-dev}"
+        image: "kohirens/circleci-aws-iac-tf:dev"
         build:
             dockerfile: "Dockerfile"
             context: "."
