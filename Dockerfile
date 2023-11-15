@@ -1,4 +1,4 @@
-FROM kohirens/alpine-awscli:2.13.32 AS base
+FROM kohirens/alpine-awscli:2.13.33 AS base
 
 ARG USER_NAME='circleci'
 ARG USER_UID='1000'
