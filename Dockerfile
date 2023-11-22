@@ -19,6 +19,7 @@ RUN apk --no-progress --purge --no-cache upgrade \
     git \
     gnupg \
     gzip \
+    jq \
     openssh \
     openssl \
     zip \
