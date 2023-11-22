@@ -2,6 +2,12 @@
 ## [Unreleased]
 
 
+<a name="0.2.0"></a>
+## [0.2.0] - 2023-11-22
+### Added
+- Tool jq
+
+
 <a name="0.1.0"></a>
 ## [0.1.0] - 2023-11-15
 ### Added
@@ -35,6 +41,7 @@
 - Dockerfile.
 
 
-[Unreleased]: https://github.com/kohirens/docker-circleci-aws-iac-tf/compare/0.1.0...HEAD
+[Unreleased]: https://github.com/kohirens/docker-circleci-aws-iac-tf/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/kohirens/docker-circleci-aws-iac-tf/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/kohirens/docker-circleci-aws-iac-tf/compare/0.0.2...0.1.0
 [0.0.2]: https://github.com/kohirens/docker-circleci-aws-iac-tf/compare/0.0.1...0.0.2
